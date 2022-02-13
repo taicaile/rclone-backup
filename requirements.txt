@@ -1,0 +1,2 @@
+watchdog
+pyrclone@git+https://github.com/taicaile/pyrclone@v0.2.0
