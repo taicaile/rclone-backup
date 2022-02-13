@@ -2,8 +2,10 @@
 this script is used to run the `mkdocs build` command
 automatically whenever the docs changes.
 """
+import http.client as httplib
 import logging
 import os
+import subprocess
 import time
 from pathlib import Path
 
@@ -28,6 +30,17 @@ logger.info("remote sync path: %s", REMOVE_SYNC_PATH)
 
 rclone = Rclone()
 rclone.lsd(REMOVE_SYNC_PATH)
+
+
+def internet_on():
+    conn = httplib.HTTPSConnection("8.8.8.8", timeout=5)
+    try:
+        conn.request("HEAD", "/")
+        return True
+    except httplib.HTTPException:
+        return False
+    finally:
+        conn.close()
 
 
 class DocsWatchDog(FileSystemEventHandler):
@@ -83,9 +96,14 @@ if __name__ == "__main__":
     observer.start()
     NO_CHANGE = True
 
+    while not internet_on():
+        logger.warning("internet is off, wait 10 seconds check again...")
+        time.sleep(10)
+
+    logger.warning("internet is on")
+
     try:
         while True:
-
             if (
                 dir_e_handler.last_modified is not None
                 and time.time() - dir_e_handler.last_modified >= WAITING_TIME
@@ -93,9 +111,13 @@ if __name__ == "__main__":
                 NO_CHANGE = False
 
             if NO_CHANGE is False:
-                dir_e_handler.last_modified = None
-                NO_CHANGE = True
-                rclone.sync(source=MONITOR_PATH, dest=REMOVE_SYNC_PATH)
+                try:
+                    rclone.sync(source=MONITOR_PATH, dest=REMOVE_SYNC_PATH)
+                    dir_e_handler.last_modified = None
+                    NO_CHANGE = True
+                except subprocess.CalledProcessError as e:
+                    dir_e_handler.last_modified = time.time()
+                    logger.error(e)
             time.sleep(1)
 
     except KeyboardInterrupt:
