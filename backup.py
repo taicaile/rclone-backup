@@ -28,16 +28,13 @@ logger.info("monitor directory: %s", MONITOR_PATH)
 REMOVE_SYNC_PATH = os.environ.get("SYNC_PATH_REMOTE")
 logger.info("remote sync path: %s", REMOVE_SYNC_PATH)
 
-rclone = Rclone()
-rclone.lsd(REMOVE_SYNC_PATH)
-
 
 def internet_on():
     conn = httplib.HTTPSConnection("8.8.8.8", timeout=5)
     try:
         conn.request("HEAD", "/")
         return True
-    except httplib.HTTPException:
+    except (httplib.HTTPException, OSError):
         return False
     finally:
         conn.close()
@@ -101,6 +98,9 @@ if __name__ == "__main__":
         time.sleep(10)
 
     logger.warning("internet is on")
+
+    rclone = Rclone()
+    rclone.lsd(REMOVE_SYNC_PATH)
 
     try:
         while True:
